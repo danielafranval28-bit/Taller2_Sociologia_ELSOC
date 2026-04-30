@@ -1,0 +1,152 @@
+---
+title: "Trabajo N°2: Malestar subjetivo y confianza en el gobierno en Chile"
+author: "Daniela Parra"
+format: html
+editor: visual
+---
+
+## Introducción:
+
+En este avance se incorporan las sugerencias del trabajo anterior, fortaleciendo la operacionalización del **malestar subjetivo** como un predictor de la **confianza en el gobierno**. Se utiliza la base de datos ELSOC 2022 para analizar cómo las percepciones de injusticia y la insatisfacción vital afectan la legitimidad institucional en el Chile post-estallido.
+
+```{r}
+#| label: cargar-librerias
+#| message: false
+#| warning: false
+
+# 1. Cargar base de datos
+
+library(sjlabelled)
+library(haven)
+library(dplyr)
+library(sjPlot)
+library(ggplot2)
+library(sjmisc)
+
+# Carga de la base ELSOC 2022
+elsoc <- read_dta("ELSOC_2022.dta")
+
+```
+
+```{r}
+
+```
+
+Se seleccionan las variables fundamentales para el modelo correlacional:
+
+-   `c05_01`: Confianza en el Gobierno (Variable Dependiente).
+
+-   `s01`: Satisfacción con la vida (Variable Independiente).
+
+-   `c18_01`: Percepción de justicia/meritocracia.
+
+-   `m0_sexo`, `m0_edad`, `m01`: Variables de control sociodemográficas
+
+```{r}
+#| label: seleccion-variables
+
+# Seleccionamos las variables
+datos <- elsoc %>% 
+  select(
+    confianza_raw = contains("c05_01"), 
+    satisfaccion_raw = contains("s01"),
+    sexo = contains("m0_sexo"),
+    edad = contains("m0_edad")
+  )
+
+```
+
+```{r}
+#| label: operacionalizacion
+
+
+datos <- elsoc %>% 
+  select(f05_01, f05_02) %>% 
+  rename(confianza_raw = f05_01, 
+         satisfaccion_raw = f05_02)
+
+
+datos <- datos %>% 
+  mutate(
+    confianza = ifelse(confianza_raw < 0, NA, confianza_raw),
+    satisfaccion = ifelse(satisfaccion_raw < 0, NA, satisfaccion_raw)
+  ) %>% 
+
+  filter(!is.na(confianza) & !is.na(satisfaccion))
+
+
+print("Estructura de los datos preparados:")
+str(datos)
+```
+
+A partir de la visualización, se observa que la **Confianza en el Gobierno** presenta una distribución marcadamente sesgada hacia los valores bajos, donde las categorías "Nada" y "Poca" concentran la mayoría de las respuestas. Esto evidencia la crisis de legitimidad mencionada en el marco teórico.
+
+Por su parte, la **Satisfacción con la Vida** muestra una distribución más equilibrada, aunque con una presencia importante de ciudadanos en niveles medios-bajos. La combinación de estos resultados preliminares sugiere que, si bien el malestar subjetivo es una variable compleja, su expresión en la desconfianza institucional es clara y persistente en el Chile actual.
+
+```{r}
+#| label: visualizacion
+#| results: asis
+
+library(sjPlot)
+library(sjmisc)
+library(dplyr)
+library(ggplot2)
+
+
+df_visualizacion <- as.data.frame(datos)
+
+df_visualizacion <- df_visualizacion %>%
+  mutate(
+    confianza_final = as.numeric(.[[1]]),
+    satisfaccion_final = as.numeric(.[[2]])
+  ) %>%
+
+  mutate(
+    confianza_final = ifelse(confianza_final < 1 | confianza_final > 5, NA, confianza_final),
+    satisfaccion_final = ifelse(satisfaccion_final < 1 | satisfaccion_final > 5, NA, satisfaccion_final)
+  ) %>%
+
+  filter(!is.na(confianza_final))
+
+
+if (nrow(df_visualizacion) > 0) {
+  
+  # A. Tabla descriptiva (2 pts)
+  cat("### Tabla de Frecuencias: Confianza y Satisfacción\n")
+  print(sjmisc::frq(df_visualizacion$confianza_final))
+  print(sjmisc::frq(df_visualizacion$satisfaccion_final))
+  
+  # B. Gráficos (3 pts)
+  # Gráfico 1: Confianza
+  p1 <- sjPlot::plot_frq(df_visualizacion$confianza_final, type = "bar", 
+                         title = "Gráfico 1: Confianza en el Gobierno (ELSOC 2022)") + 
+    theme_minimal()
+  
+  # Gráfico 2: Satisfacción
+  p2 <- sjPlot::plot_frq(df_visualizacion$satisfaccion_final, type = "bar", 
+                         title = "Gráfico 2: Satisfacción con la Vida") + 
+    theme_minimal()
+
+  print(p1)
+  print(p2)
+  
+} else {
+  cat("### <span style='color:red;'>¡ALERTA!</span>\n
+      R dice que no hay datos. Revisa que el objeto 'elsoc' esté cargado 
+      y que el 'select' inicial tenga las columnas correctas.")
+}
+```
+
+### Análisis e Interpretación de Resultados:
+
+**Análisis de Confianza Institucional (f05_01)**:
+
+Al observar el **Gráfico 1**, se evidencia una distribución de la confianza en el Gobierno que se inclina hacia los niveles bajos y medios. Destaca que un **27.7%** de los encuestados manifiesta el nivel mínimo de confianza (1), mientras que un **28.2%** se ubica en el punto medio (3). Sumando las categorías 1 y 2, observamos que un **45.2%** de la muestra tiene una confianza deficiente en la institución. Esta polarización entre la desconfianza total y la posición ambivalente refleja la dificultad de las instituciones para generar vínculos de seguridad sólidos con la ciudadanía, un rasgo característico de la crisis de representación actual.
+
+**Análisis de Satisfacción con la Vida (f05_02)**:
+
+Los resultados del **Gráfico 2** son aún más críticos. Se observa una concentración dramática en el nivel más bajo de satisfacción, donde el **52.7%** de los participantes (9,368 personas) se sitúa en la categoría 1. Si consideramos que más de la mitad de la muestra manifiesta una insatisfacción profunda, estamos ante un indicador de malestar subjetivo muy elevado. Al contrastar esto con el gráfico anterior, se sugiere que el descontento no es solo político-institucional, sino que permea la evaluación que los individuos hacen de sus propias condiciones de existencia, lo que desde la sociología del conflicto se entiende como una base de vulnerabilidad social importante.
+
+### Conclusión:
+
+El ejercicio de análisis univariado realizado con la base **ELSOC 2022** permite concluir que existe un escenario de malestar social predominante. Mientras la confianza en el gobierno muestra un escepticismo marcado (45.2% en niveles bajos), la satisfacción con la vida revela una crisis aún más profunda, con más del **50% de la muestra en niveles críticos**. Estos datos, procesados mediante la limpieza de valores negativos y el manejo de valores perdidos (N=17,780 casos válidos), entregan evidencia empírica robusta para discutir la falta de cohesión social en el Chile contemporáneo y la urgencia de abordar las raíces del descontento ciudadano.
